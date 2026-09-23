@@ -67,6 +67,13 @@ def preprocess(text: str) -> List[str]:
 # ---------- Lexical similarity: shingling + Jaccard ----------
 
 def get_shingles(words: List[str], n: int = 5) -> set:
+    # An empty word list (blank text, or text that's entirely stopwords)
+    # must produce an empty set. Without this, `{" ".join([])}` below
+    # returns {''} — non-empty, so jaccard_similarity's "not set_a" guard
+    # doesn't catch it, and two blank/stopword-only submissions come back
+    # with a spurious 100% lexical match instead of 0%.
+    if not words:
+        return set()
     if len(words) < n:
         return {" ".join(words)}
     return {" ".join(words[i:i+n]) for i in range(len(words) - n + 1)}
@@ -153,7 +160,10 @@ def check_submission(request: CheckRequest):
             matched_shingles=matched[:20]  # cap so response isn't huge
         ))
 
-    if request.check_web:
+    # A blank/whitespace-only submission has nothing worth searching for —
+    # build_web_query() would otherwise fall back to sending an empty
+    # query to SerpApi, burning a paid search call for no useful signal.
+    if request.check_web and request.new_submission.text.strip():
         query = build_web_query(request.new_submission.text)
         web_hits = []
         # SerpApi has been observed to intermittently stall past its 10s

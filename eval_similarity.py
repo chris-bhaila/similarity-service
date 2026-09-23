@@ -70,6 +70,10 @@ def check_submission(new_text, existing_texts):
         "existing_submissions": [
             {"id": i + 1, "text": t} for i, t in enumerate(existing_texts)
         ],
+        # This eval only checks lexical/semantic scoring against the known
+        # CASES above — a live web search adds SerpApi latency and quota
+        # usage without exercising anything this script actually checks.
+        "check_web": False,
     }
     req = urllib.request.Request(
         f"{BASE_URL}/check-submission",

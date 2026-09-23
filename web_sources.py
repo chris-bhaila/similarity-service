@@ -25,6 +25,20 @@ class ScrapeError(Exception):
 
 DEFAULT_CHUNK_TARGET_WORDS = 200
 
+# target_word_count is normally the submission's own word count, so a
+# short submission (a paragraph or two) checked against a page made of
+# many short paragraphs (forum threads, wiki lists) would otherwise chunk
+# at a fine granularity: only 1-2 paragraphs needed to hit the target
+# means each new chunk drops just one paragraph and adds one, so the
+# one-paragraph overlap step barely advances start — producing close to
+# one chunk per paragraph. Flooring the target keeps chunks coarse enough
+# that this can't happen.
+MIN_CHUNK_TARGET_WORDS = 100
+
+# Backstop regardless of the floor above — bounds the worst case (a very
+# long page) to a fixed number of model.encode() calls per web hit.
+MAX_CHUNKS_PER_PAGE = 30
+
 
 def chunk_page_text(page_text: str, target_word_count: int = None) -> list[str]:
     """
@@ -40,6 +54,7 @@ def chunk_page_text(page_text: str, target_word_count: int = None) -> list[str]:
     """
     if not target_word_count or target_word_count <= 0:
         target_word_count = DEFAULT_CHUNK_TARGET_WORDS
+    target_word_count = max(target_word_count, MIN_CHUNK_TARGET_WORDS)
 
     paragraphs = [p for p in page_text.split("\n") if p.strip()]
     if not paragraphs:
@@ -52,7 +67,7 @@ def chunk_page_text(page_text: str, target_word_count: int = None) -> list[str]:
     chunks = []
     start = 0
     n = len(paragraphs)
-    while start < n:
+    while start < n and len(chunks) < MAX_CHUNKS_PER_PAGE:
         word_count = 0
         end = start
         while end < n and word_count < target_word_count:
